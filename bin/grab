@@ -1,0 +1,43 @@
+#!/bin/env node
+
+const Fs = require('fs');
+const {Grabber} = require('../lib/Grabber');
+const {FileWriter} = require('../lib/FileWriter');
+
+main(process.argv.slice(1));
+
+async function main (argv) {
+  const [arg0, targetDir, root, ...toGrab] = argv;
+  if (!root)
+    exit(1, `Usage: ${arg0} <targetDir> <rootURL> <URL>*`);
+
+  // default to using the first grabbed url as a root
+  if (toGrab.length === 0)
+    toGrab.push(root);
+
+  try {
+    Fs.readdirSync(targetDir);
+  } catch (e) {
+    exit(1, `targetDir ${targetDir} unreachable`);
+  }
+
+  try {
+    const url = new URL(root);
+    if (['http:', 'https:'].indexOf(url.protocol) === -1)
+      exit(1, `root must be an http: or https: URL, got ${url.protocol}`);
+  } catch (e) {
+    exit(1, `targetDir ${targetDir} unreachable`);    
+  }
+
+  const grabber = new Grabber(targetDir, new URL(root), {dryRun: false, writer: FileWriter});
+  for (const urlStr of toGrab)
+    // do them one at a time 'cause performance isn't important
+    console.log(JSON.stringify(await grabber.grab('', new URL(urlStr)), null, 2));
+  console.log(grabber.report());
+}
+
+function exit (code, message) {
+  const say = code === 0 ? console.log : console.error;
+  say(message);
+  process.exit(code);
+}
